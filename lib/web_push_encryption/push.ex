@@ -43,7 +43,7 @@ defmodule WebPushEncryption.Push do
     headers =
       Vapid.get_headers(make_audience(endpoint), "aesgcm")
       |> Map.merge(%{
-        "TTL" => "0",
+        "TTL" => "60",
         "Content-Encoding" => "aesgcm",
         "Encryption" => "salt=#{ub64(payload.salt)}"
       })
@@ -63,14 +63,14 @@ defmodule WebPushEncryption.Push do
 
   defp make_request_params(endpoint, headers, auth_token) do
     cond do
+      vapid?() ->
+        {endpoint, headers}
+
       gcm_url?(endpoint) ->
         {make_gcm_endpoint(endpoint), headers |> Map.merge(fcm_gcm_authorization(auth_token))}
 
       fcm_url?(endpoint) ->
         {endpoint, headers |> Map.merge(fcm_gcm_authorization(auth_token))}
-
-      true ->
-        {endpoint, headers}
     end
   end
 
@@ -79,6 +79,7 @@ defmodule WebPushEncryption.Push do
     parsed.scheme <> "://" <> parsed.host
   end
 
+  defp vapid?(), do: Application.fetch_env(:web_push_encryption, :vapid_details) != :error
   defp fcm_url?(url), do: String.contains?(url, @fcm_url)
   defp gcm_url?(url), do: String.contains?(url, @gcm_url)
   defp make_gcm_endpoint(endpoint), do: String.replace(endpoint, @gcm_url, @temp_gcm_url)
